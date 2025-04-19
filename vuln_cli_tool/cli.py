@@ -2,7 +2,7 @@ from InquirerPy import prompt
 from modules import discovery, sqli_test, xss_test, report
 from utils.logger import Logger
 
-# Interactive prompt
+# Interactive prompt for user input
 questions = [
     {
         "type": "list",
@@ -26,9 +26,10 @@ questions = [
 
 answers = prompt(questions)
 
-# Using the answers
+# Logger setup
 logger = Logger(verbose=answers['verbose'])
 
+# Run the appropriate scan mode based on the user input
 if answers['mode'] == 'discovery':
     discovery.run(logger)
 elif answers['mode'] == 'sql':
@@ -40,5 +41,5 @@ elif answers['mode'] == 'full':
     sqli_test.run(logger)
     xss_test.run(logger)
 
-# Step 3: Export the report
-report.export()
+# Save the report in the chosen format (json or csv)
+report.save_report(xss_test.results, output_format=answers['output'])
