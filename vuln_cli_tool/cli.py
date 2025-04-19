@@ -22,4 +22,4 @@ elif args.mode == 'full':
     sqli_test.run(logger)
     xss_test.run(logger)
 
-report.export(format=args.output)
+report.exportt(format=args.output)
