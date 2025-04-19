@@ -1,2 +1,5 @@
+#def run(logger):
+#   return None
+
 def run(logger):
-    return None
+    logger.log("Running discovery...")
