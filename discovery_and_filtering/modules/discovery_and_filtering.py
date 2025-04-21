@@ -13,9 +13,9 @@ DEFAULT_THREADS: int = 20
 
 
 def read_alexa_top_csv(
-    filepath: str = "top-1m.csv",
-    min_rank: int = 1,
-    max_rank: int = 100,
+    filepath: str,
+    min_rank: int = 0,
+    max_rank: int = 99,
 ) -> list[str]:
     """
     @Returns
@@ -150,7 +150,7 @@ def get_cert_domain(
 
 def get_cert_domain_threaded(
     ips: list[str],
-    ports:list[int],
+    ports: list[int],
     timeout: int = DEFAULT_WEB_TIMEOUT,
     max_threads: int = DEFAULT_THREADS,
 ) -> dict[str : list[str]]:
@@ -165,3 +165,20 @@ def get_cert_domain_threaded(
             ip, domains = future.result()
             results[ip] = domains
     return results
+
+
+def get_domain_keyword_set(domains: list[str]) -> set[str] | list:
+    keywords = set()
+    [[keywords.add(kw) for kw in domain.split(".")] for domain in domains]
+    return keywords if len(keywords) > 0 else []
+
+
+def filter_urls_by_keywords(urls: list[str], keywords: set[str]) -> set[str] | list:
+    result = set(
+        [
+            result
+            for result in urls
+            if not any([keyword in keywords for keyword in result.split(".")])
+        ]
+    )
+    return result if len(result) > 0 else []
