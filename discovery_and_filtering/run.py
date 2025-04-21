@@ -11,10 +11,11 @@ TEST_IPS = [
 ]
 TEST_DNS = "1.1.1.1"
 TEST_THREADS = 20
-TEST_PORTS = [80, 8080, 8000, 8008, 443]
+TEST_PORTS = [80, 443, 8080, 8000, 8008, 8888]
 TEST_TIMEOUT = 1
 TEST_ALEXA_MAX_RANK = 100
 TEST_ALEXA_CSV = "top-1m.csv"
+TEST_DELAY = 0.5
 
 
 def log(min_verbose_level: int, *message):
@@ -31,10 +32,12 @@ def main(
     max_alexa_rank: int,
     timeout: int,
     threads: int,
+    threading_delay: float,
     verbose_level: int = 1,
 ):
     global VERBOSE_LEVEL
     VERBOSE_LEVEL = verbose_level
+
     log(
         1,
         "Warning: DNS mode works for websites that are not virtually hosted and have a fully described SSL certificate. Use at your own risk",
@@ -42,14 +45,10 @@ def main(
 
     log(
         1,
-        f"Performing DNS queries at {dns_server} for {len(ips)} ip addresses using {threads} threads...",
+        f"Performing DNS queries at {dns_server} for {len(ips)} ip addresses using {threads} threads and delay of {threading_delay} seconds...",
     )
     # check if ips have a dns record
-    dns_results = df.reverse_dns_threaded(
-        ips,
-        dns_server,
-        threads,
-    )
+    dns_results = df.reverse_dns_threaded(ips, dns_server, threads, threading_delay)
     log(2, dns_results)
     # filter out unsuccessful checks
     dns_successful_results = {
@@ -60,11 +59,15 @@ def main(
     log(2, dns_successful_urls)
     log(
         1,
-        f"Performing HTTP probes at ports {web_ports} for {len(dns_successful_results)} ip addresses using {threads} threads...",
+        f"Performing HTTP probes at ports {web_ports} for {len(dns_successful_results)} ip addresses using {threads} threads and delay of {threading_delay} seconds...",
     )
     # probe if addresses have http/s services
     http_results = df.has_web_service_threaded(
-        dns_successful_results.keys(), web_ports, timeout, threads
+        list(dns_successful_results.keys()),
+        web_ports,
+        timeout,
+        threads,
+        threading_delay,
     )
     # filter out unsuccessful checks
     http_successful_results = [
@@ -73,11 +76,11 @@ def main(
     log(2, http_results)
     log(
         1,
-        f"Performing SSL domain probes for {len(http_successful_results)} ip addresses using {threads} threads...",
+        f"Performing SSL domain probes for {len(http_successful_results)} ip addresses using {threads} threads and delay of {threading_delay} seconds...",
     )
     # get domain names of addresses
     ssl_results = df.get_cert_domain_threaded(
-        http_successful_results, web_ports, timeout, threads
+        http_successful_results, timeout, threads, threading_delay
     )
     log(2, ssl_results)
     ssl_domains = set(
@@ -126,5 +129,6 @@ if __name__ == "__main__":
         TEST_ALEXA_MAX_RANK,
         TEST_TIMEOUT,
         TEST_THREADS,
+        TEST_DELAY,
         verbose_level=2,
     )

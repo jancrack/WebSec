@@ -1,15 +1,23 @@
 import ssl
+import html
+import time
 import socket
+import random
+import requests
 import ipaddress
 import dns.resolver
 import pandas as pd
+from lxml import html
 import dns.reversename
+from urllib.parse import urljoin
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 DEFAULT_DNS_SERVER: str = "8.8.8.8"
 DEFAULT_WEB_TIMEOUT: int = 3
-DEFAULT_WEB_PORTS: list[int] = [80, 8080, 443]
+DEFAULT_WEB_PORTS: list[int] = [80, 8080, 8008, 8000, 8888, 443]
 DEFAULT_THREADS: int = 20
+DEFAULT_SEARCH_ENGINE_PORT: int = 80
+DEFAULT_THREADING_DELAY: float = 0.5
 
 
 def read_alexa_top_csv(
@@ -58,7 +66,7 @@ def get_hosts_in_range(min_address: str, max_address: str) -> list[str]:
 
 
 def reverse_dns(
-    ip: str, dns_server: str = DEFAULT_DNS_SERVER
+    ip: str, dns_server: str = DEFAULT_DNS_SERVER, delay: float = 0
 ) -> tuple[str, str | None]:
     """
     @Returns
@@ -67,6 +75,7 @@ def reverse_dns(
         str ip - address of the target
         str dns_server - ip address of the dns server
     """
+    time.sleep(delay)
     try:
         resolver = dns.resolver.Resolver()
         resolver.nameservers = [dns_server]
@@ -82,6 +91,7 @@ def reverse_dns_threaded(
     ips: list[str],
     dns_server: str = DEFAULT_DNS_SERVER,
     max_threads: int = DEFAULT_THREADS,
+    delay: float = DEFAULT_THREADING_DELAY,
 ) -> dict[str : str | None]:
     """
     @Returns
@@ -93,7 +103,10 @@ def reverse_dns_threaded(
     """
     results = {}
     with ThreadPoolExecutor(max_threads) as executor:
-        futures = {executor.submit(reverse_dns, ip, dns_server): ip for ip in ips}
+        futures = {
+            executor.submit(reverse_dns, ips[i], dns_server, (i + 1) * delay): ips[i]
+            for i in range(len(ips))
+        }
         for future in as_completed(futures):
             ip, domain = future.result()
             results[ip] = domain
@@ -101,8 +114,12 @@ def reverse_dns_threaded(
 
 
 def has_web_service(
-    ip: str, ports: list[int] = DEFAULT_WEB_PORTS, timeout: int = DEFAULT_WEB_TIMEOUT
+    ip: str,
+    ports: list[int] = DEFAULT_WEB_PORTS,
+    timeout: int = DEFAULT_WEB_TIMEOUT,
+    delay: float = 0,
 ) -> tuple[str, bool]:
+    time.sleep(delay)
     for port in ports:
         try:
             with socket.create_connection((ip, port), timeout=timeout):
@@ -117,12 +134,15 @@ def has_web_service_threaded(
     ports: list[int] = DEFAULT_WEB_PORTS,
     timeout: int = DEFAULT_WEB_TIMEOUT,
     max_threads: int = DEFAULT_THREADS,
+    delay: float = DEFAULT_THREADING_DELAY,
 ) -> dict[str:bool]:
     results = {}
     with ThreadPoolExecutor(max_threads) as executor:
         futures = {
-            executor.submit(has_web_service, address, ports, timeout): address
-            for address in addresses
+            executor.submit(
+                has_web_service, addresses[i], ports, timeout, (i + 1) * delay
+            ): addresses[i]
+            for i in range(len(addresses))
         }
         for future in as_completed(futures):
             ip, result = future.result()
@@ -131,11 +151,12 @@ def has_web_service_threaded(
 
 
 def get_cert_domain(
-    ip: str, port: int, timeout: int = DEFAULT_WEB_TIMEOUT
+    ip: str, timeout: int = DEFAULT_WEB_TIMEOUT, delay: float = 0
 ) -> tuple[str, list[str]]:
+    time.sleep(delay)
     context = ssl.create_default_context()
     try:
-        with socket.create_connection((ip, port), timeout=timeout) as sock:
+        with socket.create_connection((ip, 443), timeout=timeout) as sock:
             with context.wrap_socket(sock, server_hostname=ip) as ssock:
                 cert = ssock.getpeercert()
                 # Try SAN first
@@ -150,16 +171,20 @@ def get_cert_domain(
 
 def get_cert_domain_threaded(
     ips: list[str],
-    ports: list[int],
     timeout: int = DEFAULT_WEB_TIMEOUT,
     max_threads: int = DEFAULT_THREADS,
+    delay: float = DEFAULT_THREADING_DELAY,
 ) -> dict[str : list[str]]:
     results = {}
-    ipAtPort = list(zip(ips, ports))
     with ThreadPoolExecutor(max_threads) as executor:
         futures = {
-            executor.submit(get_cert_domain, ip, port, timeout): ip
-            for ip, port in ipAtPort
+            executor.submit(
+                get_cert_domain,
+                ips[i],
+                timeout,
+                delay * (i + 1),
+            ): ips[i]
+            for i in range(len(ips))
         }
         for future in as_completed(futures):
             ip, domains = future.result()
@@ -182,3 +207,79 @@ def filter_urls_by_keywords(urls: list[str], keywords: set[str]) -> set[str] | l
         ]
     )
     return result if len(result) > 0 else []
+
+
+def read_words(filepath: str, count: int = 100, at_random: bool = True) -> set[str]:
+    df = pd.read_csv(filepath)
+    word_list = df[0].to_list()
+    return random.sample(word_list, count) if at_random else word_list[:count]
+
+
+def search_engine_scrape(
+    search_engine_url: str,
+    result_xpath: str,
+    word: str,
+    depth: int,
+    next_page_xpath: str,
+    search_engine_port: int = DEFAULT_SEARCH_ENGINE_PORT,
+    init_delay: float = 0,
+    delay: float = 0,
+) -> tuple[str, list[str]]:
+    """
+    @Returns
+        A tuple with the given word and a list of the unique urls that match the given xpath
+    @Parameters
+        str search_engine_url - the search engine (e.g. google.com, www.yahoo.com, https://bing.com)
+        str result_xpath - the xpath pattern that the results containing urls should match
+        str word - search query content
+        int depth - how many pages to walk
+        str next_page_xpath - the template containing the next page url
+        int search_engine_port - the port of the search engine http/s protocol
+        float init_delay - how long to wait before starting function
+        float delay - how long to wait between requests
+    """
+    seen_urls = set()
+    current_url = f"https://{search_engine_url}:{search_engine_port}/search?q={word}"
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+    }
+    time.sleep(init_delay)
+    for _ in range(depth):
+        try:
+            response = requests.get(current_url, headers=headers, timeout=10)
+            if response.status_code != 200:
+                break
+
+            tree = html.fromstring(response.content)
+
+            # extract result urls
+            urls = tree.xpath(result_xpath)
+            clean_urls = [url.strip() for url in urls if url.strip()]
+            seen_urls.update(clean_urls)
+
+            # get next page url
+            next_page_links = tree.xpath(next_page_xpath)
+            if not next_page_links:
+                break
+
+            next_page_url = urljoin(current_url, next_page_links[0])
+            current_url = next_page_url
+
+            time.sleep(delay)
+
+        except Exception as e:
+            print(f"Error fetching or parsing page: {e}")
+            break
+
+    return word, list(seen_urls)
+
+
+def search_engine_scrape_threaded(
+    search_engine_url: str,
+    result_xpath: str,
+    words: list[str],
+    depth: int,
+    search_engine_port: int = DEFAULT_SEARCH_ENGINE_PORT,
+) -> dict[str : list[str]]:
+    pass
