@@ -17,3 +17,7 @@ def export(formats='json'):
             writer = csv.DictWriter(f, fieldnames=results[0].keys())
             writer.writeheader()
             writer.writerows(results)
+
+
+def save_report(results, output_format):
+    return None

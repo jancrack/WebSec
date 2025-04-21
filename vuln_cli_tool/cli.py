@@ -4,16 +4,13 @@ from InquirerPy import prompt
 from modules import discovery, sqli_test, xss_test, report
 from utils.logger import Logger
 
-HEAD
-# Interactive prompt
 # Interactive CLI Questions
-b1bc7ac (Save current changes before cherry-pick)
 questions = [
     {
         "type": "list",
         "name": "mode",
         "message": "Choose scan mode:",
-        "choices": ["discovery", "sql", "xss", "full", "dev: cherry-pick commits"]
+        "choices": ["discovery", "sql", "xss", "full"]
     },
     {
         "type": "confirm",
@@ -30,33 +27,13 @@ questions = [
 ]
 
 # Prompt user for answers
-
 answers = prompt(questions)
-HEAD
-
-# Using the answers
-logger = Logger(verbose=answers['verbose'])
-
-if answers['mode'] == 'discovery':
-    discovery.run(logger)
-elif answers['mode'] == 'sql':
-    sqli_test.run(logger)
-elif answers['mode'] == 'xss':
-    xss_test.run(logger)
-elif answers['mode'] == 'full':
-    discovery.run(logger)
-    sqli_test.run(logger)
-    xss_test.run(logger)
-
-# Step 3: Export the report
-report.export()
 
 # Initialize logger with verbose/silent mode
 logger = Logger(verbose=answers["verbose"])
 results = []
 
 # Mode: Discovery (with submenus)
-
 if answers["mode"] == "discovery":
     submode_question = [
         {
@@ -156,35 +133,6 @@ elif answers["mode"] == "full":
     sqli_test.run(logger)
     results = xss_test.run(logger)
 
-# Dev Mode: Cherry-pick commits
-
-elif answers["mode"] == "dev: cherry-pick commits":
-    dev_questions = [
-        {
-            "type": "input",
-            "name": "branch",
-            "message": "Target branch to cherry-pick into:",
-            "default": "vuln_cli_tool"
-        },
-        {
-            "type": "input",
-            "name": "commits",
-            "message": "Commit hashes to cherry-pick (comma-separated):"
-        }
-    ]
-    dev_inputs = prompt(dev_questions)
-
-    # Checkout the target branch
-    subprocess.call(["git", "checkout", dev_inputs["branch"]])
-
-    # Cherry-pick each commit hash
-    for h in dev_inputs["commits"].split(","):
-        commit = h.strip()
-        if commit:
-            logger.log(f"[git] Cherry-picking commit {commit}...")
-            subprocess.call(["git", "cherry-pick", "-x", commit])
-
-# Export report if results exist 
+# Export report if results exist
 if results:
     report.save_report(results, output_format=answers["output"])
-b1bc7ac (Save current changes before cherry-pick)
