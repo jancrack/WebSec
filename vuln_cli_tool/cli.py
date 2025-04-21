@@ -1,14 +1,16 @@
+import answers as answers
+import subprocess
 from InquirerPy import prompt
 from modules import discovery, sqli_test, xss_test, report
 from utils.logger import Logger
 
-# Main questions
+# Interactive CLI Questions
 questions = [
     {
         "type": "list",
         "name": "mode",
         "message": "Choose scan mode:",
-        "choices": ["discovery", "sql", "xss", "full"]
+        "choices": ["discovery", "sql", "xss", "full", "dev: cherry-pick commits"]
     },
     {
         "type": "confirm",
@@ -24,12 +26,16 @@ questions = [
     }
 ]
 
+# Prompt user for answers
+
 answers = prompt(questions)
+
+# Initialize logger with verbose/silent mode
 logger = Logger(verbose=answers["verbose"])
 results = []
 
-# 📦 Handle discovery sub-options
-discovery_options = {}
+# Mode: Discovery (with submenus)
+
 if answers["mode"] == "discovery":
     submode_question = [
         {
@@ -39,10 +45,11 @@ if answers["mode"] == "discovery":
             "choices": ["search_engine", "dns"]
         }
     ]
-    submode = prompt(submode_question)["discovery_type"]
+    discovery_type = prompt(submode_question)["discovery_type"]
+    discovery_options = {"type": discovery_type}
 
-    if submode == "search_engine":
-        discovery_options = prompt([
+    if discovery_type == "search_engine":
+        search_engine_questions = [
             {
                 "type": "input",
                 "name": "search_url",
@@ -52,7 +59,7 @@ if answers["mode"] == "discovery":
             {
                 "type": "input",
                 "name": "keywords_file",
-                "message": "Keywords file:",
+                "message": "Keywords file path:",
                 "default": "words.txt"
             },
             {
@@ -67,11 +74,11 @@ if answers["mode"] == "discovery":
                 "message": "Request timeout (seconds):",
                 "default": "5"
             }
-        ])
-        discovery_options["type"] = "search_engine"
+        ]
+        discovery_options.update(prompt(search_engine_questions))
 
-    elif submode == "dns":
-        discovery_options = prompt([
+    elif discovery_type == "dns":
+        dns_questions = [
             {
                 "type": "input",
                 "name": "ips",
@@ -98,22 +105,64 @@ if answers["mode"] == "discovery":
             {
                 "type": "input",
                 "name": "timeout",
-                "message": "Timeout per request (sec):",
-                "default": "1"
+                "message": "Timeout per request (seconds):",
+                "default": "3"
             },
             {
                 "type": "input",
                 "name": "alexa_rank",
                 "message": "Alexa Max Rank:",
-                "default": "100"
+                "default": "1000000"
             },
             {
                 "type": "input",
-                "name": "alexa_csv",
-                "message": "Alexa CSV file (path):"
+                "name": "alexa_file",
+                "message": f"Alexa {'JSON' if answers['output'] == 'json' else 'CSV'} file path:",
+                "default": "alexa_top_sites.json" if answers['output'] == 'json' else "alexa_top_sites.csv"
             }
-        ])
-        discovery_options["type"] = "dns"
+        ]
+        discovery_options.update(prompt(dns_questions))
 
-    # 🔍 Call discovery with parameters
     discovery.run(logger, discovery_options)
+
+# Mode: XSS only
+elif answers["mode"] == "xss":
+    results = xss_test.run(logger)
+
+# Full pipeline
+elif answers["mode"] == "full":
+    discovered_urls = discovery.run(logger)
+    sqli_test.run(logger)
+    results = xss_test.run(logger)
+
+# Dev Mode: Cherry-pick commits
+
+elif answers["mode"] == "dev: cherry-pick commits":
+    dev_questions = [
+        {
+            "type": "input",
+            "name": "branch",
+            "message": "Target branch to cherry-pick into:",
+            "default": "vuln_cli_tool"
+        },
+        {
+            "type": "input",
+            "name": "commits",
+            "message": "Commit hashes to cherry-pick (comma-separated):"
+        }
+    ]
+    dev_inputs = prompt(dev_questions)
+
+    # Checkout the target branch
+    subprocess.call(["git", "checkout", dev_inputs["branch"]])
+
+    # Cherry-pick each commit hash
+    for h in dev_inputs["commits"].split(","):
+        commit = h.strip()
+        if commit:
+            logger.log(f"[git] Cherry-picking commit {commit}...")
+            subprocess.call(["git", "cherry-pick", "-x", commit])
+
+# Export report if results exist 
+if results:
+    report.save_report(results, output_format=answers["output"])
