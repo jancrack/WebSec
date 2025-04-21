@@ -9,7 +9,7 @@ questions = [
         "type": "list",
         "name": "mode",
         "message": "Choose scan mode:",
-        "choices": ["discovery", "sql", "xss", "full", "dev: cherry-pick commits"]
+        "choices": ["discovery", "sql", "xss", "full"]
     },
     {
         "type": "confirm",
@@ -136,29 +136,7 @@ elif answers["mode"] == "full":
     sqli_test.run(logger)
     results = xss_test.run(logger)
 
-# Dev Mode: Cherry-pick commits
-elif answers["mode"] == "dev: cherry-pick commits":
-    dev_questions = [
-        {
-            "type": "input",
-            "name": "branch",
-            "message": "Target branch to cherry-pick into:",
-            "default": "vuln_cli_tool"
-        },
-        {
-            "type": "input",
-            "name": "commits",
-            "message": "Commit hashes to cherry-pick (comma-separated):"
-        }
-    ]
-    dev_inputs = prompt(dev_questions)
 
-    subprocess.call(["git", "checkout", dev_inputs["branch"]])
-    for h in dev_inputs["commits"].split(","):
-        commit = h.strip()
-        if commit:
-            logger.log(f"[git] Cherry-picking commit {commit}...")
-            subprocess.call(["git", "cherry-pick", "-x", commit])
 
 # Export report if results exist
 if results:
