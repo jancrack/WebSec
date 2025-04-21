@@ -8,7 +8,7 @@ def run(logger, options=None):
 
     found_urls = []
 
-    # Search Engine Discovery
+    # === Search Engine Discovery ===
     if options["type"] == "search_engine":
         # Extract search engine parameters
         search_url = options.get("search_url", "https://www.google.com")
@@ -23,6 +23,7 @@ def run(logger, options=None):
         logger.log(f"    XPath: {xpath}")
         logger.log(f"    Timeout: {timeout}s")
 
+        # Simulated result
         found_urls = [
             "http://example.com/search?q=login",
             "http://example.com/search?q=admin"
@@ -56,6 +57,7 @@ def run(logger, options=None):
         else:
             logger.log(f"    Alexa File: {alexa_file} (unknown format)")
 
+        # Simulated result
         found_urls = [
             f"http://{ip}:{port}" for ip in ["192.168.0.100", "192.168.0.101"] for port in ports
         ]

@@ -1,6 +1,7 @@
 from InquirerPy import prompt
 from modules import discovery, sqli_test, xss_test, report
 from utils.logger import Logger
+import subprocess
 
 # Interactive CLI Questions
 questions = [
@@ -8,7 +9,7 @@ questions = [
         "type": "list",
         "name": "mode",
         "message": "Choose scan mode:",
-        "choices": ["discovery", "sql", "xss", "full"]
+        "choices": ["discovery", "sql", "xss", "full", "dev: cherry-pick commits"]
     },
     {
         "type": "confirm",
@@ -121,6 +122,10 @@ if answers["mode"] == "discovery":
 
     discovery.run(logger, discovery_options)
 
+# Mode: SQLi
+elif answers["mode"] == "sql":
+    sqli_test.run(logger)
+
 # Mode: XSS only
 elif answers["mode"] == "xss":
     results = xss_test.run(logger)
@@ -130,6 +135,30 @@ elif answers["mode"] == "full":
     discovered_urls = discovery.run(logger)
     sqli_test.run(logger)
     results = xss_test.run(logger)
+
+# Dev Mode: Cherry-pick commits
+elif answers["mode"] == "dev: cherry-pick commits":
+    dev_questions = [
+        {
+            "type": "input",
+            "name": "branch",
+            "message": "Target branch to cherry-pick into:",
+            "default": "vuln_cli_tool"
+        },
+        {
+            "type": "input",
+            "name": "commits",
+            "message": "Commit hashes to cherry-pick (comma-separated):"
+        }
+    ]
+    dev_inputs = prompt(dev_questions)
+
+    subprocess.call(["git", "checkout", dev_inputs["branch"]])
+    for h in dev_inputs["commits"].split(","):
+        commit = h.strip()
+        if commit:
+            logger.log(f"[git] Cherry-picking commit {commit}...")
+            subprocess.call(["git", "cherry-pick", "-x", commit])
 
 # Export report if results exist
 if results:
