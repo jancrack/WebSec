@@ -1,7 +1,29 @@
+import requests
+from urllib.parse import urlparse
+import os
+
+def fetch_url(url, timeout=5):
+    """
+    Attempts to fetch a URL with SSL verification first,
+    then retries without verification if an SSL error occurs.
+    """
+    try:
+        return requests.get(url, timeout=timeout, verify=True).text
+    except requests.exceptions.SSLError:
+        print(f"[!] SSL error on {url}, retrying without verification...")
+        try:
+            return requests.get(url, timeout=timeout, verify=False).text
+        except Exception as e:
+            print(f"[!] Failed to fetch {url}: {e}")
+            return None
+    except Exception as e:
+        print(f"[!] Request failed for {url}: {e}")
+        return None
+
+
 def run(logger, options=None):
     logger.log("[*] Running discovery...")
 
-    # Exit early if no options or no discovery type is provided
     if options is None or "type" not in options:
         logger.log("[-] No discovery type specified. Exiting.")
         return []
@@ -10,28 +32,36 @@ def run(logger, options=None):
 
     # === Search Engine Discovery ===
     if options["type"] == "search_engine":
-        # Extract search engine parameters
         search_url = options.get("search_url", "https://www.google.com")
         keywords_file = options.get("keywords_file", "words.txt")
         xpath = options.get("xpath", "//div[@class='g']/a")
         timeout = int(options.get("timeout", 5))
 
-        # Log selected options
         logger.log("Search Engine Discovery:")
         logger.log(f"    URL: {search_url}")
         logger.log(f"    Keywords File: {keywords_file}")
         logger.log(f"    XPath: {xpath}")
         logger.log(f"    Timeout: {timeout}s")
 
-        # Simulated result
-        found_urls = [
-            "http://example.com/search?q=login",
-            "http://example.com/search?q=admin"
-        ]
+        try:
+            with open(keywords_file, 'r', encoding='utf-8') as f:
+                keywords = [line.strip() for line in f.readlines()]
+        except Exception as e:
+            logger.log(f"[!] Failed to read keywords file: {e}")
+            return []
+
+        for word in keywords:
+            test_url = f"{search_url}/search?q={word}"
+            html = fetch_url(test_url, timeout=timeout)
+            if html:
+                logger.log(f"[✓] Fetched: {test_url}")
+                found_urls.append(test_url)
+
+        if not found_urls:
+            logger.log("[!] No URLs found from search engine.")
 
     # === DNS Discovery ===
     elif options["type"] == "dns":
-        # Extract DNS and network scan parameters
         ips = options.get("ips", "")
         dns_server = options.get("dns_server", "1.1.1.1")
         threads = int(options.get("threads", 20))
@@ -40,8 +70,7 @@ def run(logger, options=None):
         alexa_rank = int(options.get("alexa_rank", 100))
         alexa_file = options.get("alexa_file", "")
 
-        # Log DNS discovery config
-        logger.log(" DNS Discovery:")
+        logger.log("DNS Discovery:")
         logger.log(f"    IPs: {ips}")
         logger.log(f"    DNS Server: {dns_server}")
         logger.log(f"    Ports: {ports}")
@@ -49,7 +78,6 @@ def run(logger, options=None):
         logger.log(f"    Timeout: {timeout}s")
         logger.log(f"    Alexa Rank Limit: {alexa_rank}")
 
-        # Display Alexa file format based on extension
         if alexa_file.endswith(".json"):
             logger.log(f"    Alexa JSON: {alexa_file}")
         elif alexa_file.endswith(".csv"):
@@ -57,16 +85,15 @@ def run(logger, options=None):
         else:
             logger.log(f"    Alexa File: {alexa_file} (unknown format)")
 
-        # Simulated result
+        # Simulated IP and port scan
+        simulated_ips = ["192.168.0.100", "192.168.0.101"]
         found_urls = [
-            f"http://{ip}:{port}" for ip in ["192.168.0.100", "192.168.0.101"] for port in ports
+            f"http://{ip}:{port}" for ip in simulated_ips for port in ports
         ]
 
-    # === Unknown Discovery Type ===
     else:
         logger.log("[-] Unknown discovery type.")
         return []
 
-    # Final log with number of URLs found
     logger.log(f"[+] Discovered {len(found_urls)} URLs.")
     return found_urls
