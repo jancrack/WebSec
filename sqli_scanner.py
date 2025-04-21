@@ -5,7 +5,7 @@ def test_sql_injection(url):
     try:
         print(f"[+] Стартира се сканиране на {url} със sqlmap...\n")
 
-        sqlmap_path = 'D:\\WebSec\\sqlmap-master\\sqlmap.py'
+        sqlmap_path = './sqlmap-master/sqlmap.py'
 
         command = [
             'python', sqlmap_path,
