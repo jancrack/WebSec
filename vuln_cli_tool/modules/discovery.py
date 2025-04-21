@@ -8,7 +8,7 @@ def run(logger, options=None):
 
     found_urls = []
 
-    # === Search Engine Discovery ===
+    # Search Engine Discovery
     if options["type"] == "search_engine":
         # Extract search engine parameters
         search_url = options.get("search_url", "https://www.google.com")

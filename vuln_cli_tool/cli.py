@@ -1,5 +1,3 @@
-import answers as answers
-import subprocess
 from InquirerPy import prompt
 from modules import discovery, sqli_test, xss_test, report
 from utils.logger import Logger
