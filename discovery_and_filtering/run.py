@@ -1,6 +1,8 @@
 import modules.discovery_and_filtering as df
 
 TEST_IPS = [
+    "23.227.38.65",
+    "195.191.149.84",  # restaurant-india.com
     "216.58.214.142",  # google.com ipv4
     "2a00:1450:4017:816::200e",  # google.com ipv6
     "192.0.2.1",  # internal ip (no dns record)
@@ -9,10 +11,16 @@ TEST_IPS = [
 ]
 TEST_DNS = "1.1.1.1"
 TEST_THREADS = 20
-TEST_PORTS = [80, 8080, 443]
+TEST_PORTS = [80, 8080, 8000, 8008, 443]
 TEST_TIMEOUT = 1
 TEST_ALEXA_MAX_RANK = 100
 TEST_ALEXA_CSV = "top-1m.csv"
+
+
+def log(min_verbose_level: int, *message):
+    global VERBOSE_LEVEL
+    if VERBOSE_LEVEL >= min_verbose_level:
+        print(*message)
 
 
 def main(
@@ -25,27 +33,35 @@ def main(
     threads: int,
     verbose_level: int = 1,
 ):
-    if verbose_level >= 1:
-        print(
-            f"Performing DNS queries at {dns_server} for {len(ips)} ip addresses using {threads} threads..."
-        )
+    global VERBOSE_LEVEL
+    VERBOSE_LEVEL = verbose_level
+    log(
+        1,
+        "Warning: DNS mode works for websites that are not virtually hosted and have a fully described SSL certificate. Use at your own risk",
+    )
+
+    log(
+        1,
+        f"Performing DNS queries at {dns_server} for {len(ips)} ip addresses using {threads} threads...",
+    )
     # check if ips have a dns record
     dns_results = df.reverse_dns_threaded(
         ips,
         dns_server,
         threads,
     )
+    log(2, dns_results)
     # filter out unsuccessful checks
     dns_successful_results = {
         ip: result for ip, result in dns_results.items() if result != None
     }
-    if verbose_level >= 2:
-        print(dns_results)
-
-    if verbose_level >= 1:
-        print(
-            f"Performing HTTP probes at ports {web_ports} for {len(dns_successful_results)} ip addresses using {threads} threads..."
-        )
+    dns_successful_urls = set([url[:-1] for url in dns_successful_results.values()])
+    log(1, f"Discovered {len(dns_successful_urls)} domains using DNS PTR records.")
+    log(2, dns_successful_urls)
+    log(
+        1,
+        f"Performing HTTP probes at ports {web_ports} for {len(dns_successful_results)} ip addresses using {threads} threads...",
+    )
     # probe if addresses have http/s services
     http_results = df.has_web_service_threaded(
         dns_successful_results.keys(), web_ports, timeout, threads
@@ -54,34 +70,51 @@ def main(
     http_successful_results = [
         address for address in http_results.keys() if http_results[address]
     ]
-    if verbose_level >= 2:
-        print(http_results)
-
-    if verbose_level >= 1:
-        print(
-            f"Performing SSL domain probes for {len(http_successful_results)} ip addresses using {threads} threads..."
-        )
+    log(2, http_results)
+    log(
+        1,
+        f"Performing SSL domain probes for {len(http_successful_results)} ip addresses using {threads} threads...",
+    )
     # get domain names of addresses
-    domain_results = df.get_cert_domain_threaded(
+    ssl_results = df.get_cert_domain_threaded(
         http_successful_results, web_ports, timeout, threads
     )
-    if verbose_level >= 2:
-        print(domain_results)
+    log(2, ssl_results)
+    ssl_domains = set(
+        [
+            url.replace("*.", "")
+            for domain_list in ssl_results.values()
+            for url in domain_list
+        ]
+    )
+    log(1, f"Discovered {len(ssl_domains)} domains using SSL certificates.")
+    log(2, ssl_domains)
 
     # get alexa top domains
-    if verbose_level >= 1:
-        print(f"Reading alexa top {max_alexa_rank} from {alexa_csv_filepath}...")
+    log(1, f"Reading alexa top {max_alexa_rank} from {alexa_csv_filepath}...")
     alexa_top = df.read_alexa_top_csv(alexa_csv_filepath, max_rank=max_alexa_rank)
-    if verbose_level >= 1:
-        print(f"Extracting keywords from {len(alexa_top)} domains...")
+    log(1, f"Extracting keywords from alexa top {len(alexa_top)} domains...")
     keywords = df.get_domain_keyword_set(alexa_top)
-    if verbose_level >= 1:
-        print(f"Extracted {len(keywords)} keywords...")
-    if verbose_level >= 2:
-        print(keywords)
+    log(1, f"Extracted {len(keywords)} keywords.")
+    log(2, keywords)
 
-    # TODO: filter out using alexa keywords
-
+    # filter out top domains by keywords
+    # using ssl
+    log(1, f"Filtering discovered addresses using {len(keywords)} kewords...")
+    filtered_ssl_domains = df.filter_urls_by_keywords(ssl_domains, keywords)
+    log(
+        1,
+        f"Successfully selected {len(filtered_ssl_domains)} domains by SSL certificate.",
+    )
+    log(2, filtered_ssl_domains)
+    # using dns
+    log(1, f"Filtering discovered addresses using {len(keywords)} kewords...")
+    filtered_ptr_domains = df.filter_urls_by_keywords(dns_successful_urls, keywords)
+    log(
+        1,
+        f"Successfully selected {len(filtered_ptr_domains)} domains by DNS PTR record.",
+    )
+    log(2, filtered_ptr_domains)
 
 
 if __name__ == "__main__":
@@ -93,5 +126,5 @@ if __name__ == "__main__":
         TEST_ALEXA_MAX_RANK,
         TEST_TIMEOUT,
         TEST_THREADS,
-        verbose_level=1,
+        verbose_level=2,
     )

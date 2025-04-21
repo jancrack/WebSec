@@ -167,7 +167,18 @@ def get_cert_domain_threaded(
     return results
 
 
-def get_domain_keyword_set(domains: list[str]) -> set[str]:
+def get_domain_keyword_set(domains: list[str]) -> set[str] | list:
     keywords = set()
     [[keywords.add(kw) for kw in domain.split(".")] for domain in domains]
-    return keywords
+    return keywords if len(keywords) > 0 else []
+
+
+def filter_urls_by_keywords(urls: list[str], keywords: set[str]) -> set[str] | list:
+    result = set(
+        [
+            result
+            for result in urls
+            if not any([keyword in keywords for keyword in result.split(".")])
+        ]
+    )
+    return result if len(result) > 0 else []
