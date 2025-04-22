@@ -13,9 +13,14 @@ TEST_DNS = "1.1.1.1"
 TEST_THREADS = 20
 TEST_PORTS = [80, 443, 8080, 8000, 8008, 8888]
 TEST_TIMEOUT = 1
-TEST_ALEXA_MAX_RANK = 100
+TEST_ALEXA_MAX_RANK = 1000000
 TEST_ALEXA_CSV = "top-1m.csv"
 TEST_DELAY = 0.5
+TEST_SEARCH_ENGINE = "duckduckgo.com/?q="
+TEST_RESULT_XPATH = "//*/div/h2/a"
+TEST_NEXT_PAGE_XPATH = '//*[@id="more-results"]'
+TEST_SEARCH_DEPTH = 5
+TEST_SEARCH_PHRASES = ["test", "google.com"]
 
 
 def log(min_verbose_level: int, *message):
@@ -120,16 +125,47 @@ def dns(
     log(2, filtered_ptr_domains)
 
 
-def search():
-    result = df.search_engine_scrape_threaded(
-        "duckduckgo.com/?q=",
-        "//*/div/h2/a",
-        ["test","google.com"],
-        2,
-        '//*[@id="more-results"]',
-        443,
+def search(
+    search_engine: str,
+    result_xpath: str,
+    search_phrases: list[str],
+    search_depth: int,
+    next_page_xpath: str,
+    alexa_csv_filepath: str,
+    alexa_max_rank: int,
+    max_threads: int,
+    thread_delay: float,
+    verbose_level:int
+):
+    global VERBOSE_LEVEL
+    VERBOSE_LEVEL = verbose_level
+
+    log(1, f'Scraping search engine {search_engine} with {len(search_phrases)} search phrases using {max_threads} threads with {thread_delay}s delay...')
+    results = df.search_engine_scrape_threaded(
+        search_engine,
+        result_xpath,
+        search_phrases,
+        search_depth,
+        next_page_xpath,
+        max_threads,
+        thread_delay,
     )
-    print(result)
+    log(2, results)
+    urls = [url for urls in results.values() for url in urls]
+    log(1, f'Extracted {len(urls)} urls.')
+    log(2, urls)
+
+    log(1, f'Reading top alexa {alexa_max_rank} ranked sites...')
+    alexa_1m = df.read_alexa_top_csv(alexa_csv_filepath, max_rank=alexa_max_rank)
+    alexa_kw = df.get_domain_keyword_set(alexa_1m)
+    log(1, f'Extracted {len(alexa_kw)} keywords for filtration.')
+    log(2, alexa_kw)
+
+    log(1, f'Filtering {len(urls)} urls using {len(alexa_kw)} keywords...')
+    filtered_urls = df.filter_urls_by_keywords(urls, alexa_kw)
+
+    log(1, f'Extracted {len(filtered_urls)} urls.')
+    print(filtered_urls)
 
 
 if __name__ == "__main__":
@@ -144,4 +180,15 @@ if __name__ == "__main__":
     #     TEST_DELAY,
     #     verbose_level=2,
     # )
-    search()
+    search(
+        TEST_SEARCH_ENGINE,
+        TEST_RESULT_XPATH,
+        TEST_SEARCH_PHRASES,
+        TEST_SEARCH_DEPTH,
+        TEST_NEXT_PAGE_XPATH,
+        TEST_ALEXA_CSV,
+        TEST_ALEXA_MAX_RANK,
+        TEST_THREADS,
+        TEST_DELAY,
+        verbose_level=1,
+    )

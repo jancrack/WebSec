@@ -255,7 +255,7 @@ def search_engine_scrape(
             for r in results:
                 href = r.get_attribute("href")
                 if href:
-                    seen_urls.add(href.strip())
+                    seen_urls.add(href.replace('https','').replace('http','').replace('www.','').strip('.:/? '))
 
             # Find and click next page
             next_links = driver.find_elements(By.XPATH, next_page_xpath)
