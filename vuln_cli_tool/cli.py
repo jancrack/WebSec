@@ -1,9 +1,12 @@
+import os
 from InquirerPy import prompt
-from modules import discovery, sqli_test, xss_test, report
 from utils.logger import Logger
+from modules import discovery, sqli_test, xss_test, report
 
 
 def run():
+    os.makedirs("vuln_cli_tool/reports", exist_ok=True)
+
     # Main Questions
     questions = [
         {
@@ -169,19 +172,32 @@ def run():
                     "name": "filepath",
                     "message": f"SQLMap portable installition main script path:",
                     "default": "vuln_cli_tool/utils/sqlmap-master/sqlmap.py",
-                },{
+                },
+                {
                     "type": "input",
                     "name": "url",
                     "message": f"URL to attack:",
                     "default": "http://testphp.vulnweb.com/listproducts.php?cat=1",
-                }
+                },
             ]
         )
-        results += sqli_test.run(logger,sql_optioons.get("filepath"), [sql_optioons.get("url")])
+        results += sqli_test.run(
+            logger, sql_optioons.get("filepath"), [sql_optioons.get("url")]
+        )
 
     # XSS scan
     elif answers["mode"] == "xss":
-        results += xss_test.run(logger)
+        options = prompt(
+            [
+                {
+                    "type": "input",
+                    "name": "url",
+                    "message": f"URL to attack:",
+                    "default": "http://testphp.vulnweb.com/search.php?test=query",
+                }
+            ]
+        )
+        results += xss_test.run(logger, options)
 
     # Full pipeline (discovery + SQLi + XSS)
     elif answers["mode"] == "full":

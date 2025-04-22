@@ -32,10 +32,10 @@ def run_selenium_test(url, logger, results):
         time.sleep(3)  
 
         # Save a screenshot of the page
-        os.makedirs("vuln_cli_tool/reports", exist_ok=True)
+        os.makedirs("reports", exist_ok=True)
         parsed = urlparse(url)
         safe_name = parsed.netloc.replace(".", "_") + "_" + str(int(time.time()))
-        screenshot_path = f"vuln_cli_tool/reports/{safe_name}.png"
+        screenshot_path = f"reports/{safe_name}.png"
         driver.save_screenshot(screenshot_path)
         logger.log(f"[Selenium] Screenshot saved: {screenshot_path}")
 
@@ -122,13 +122,13 @@ def inject_payloads(url, logger, results):
                 logger.log(f"[!] Request failed: {e}")
 
 # Entry point for this module
-def run(logger, target_urls=None):
+def run(logger, options, target_urls=None):
     results = []
 
     # Default URLs to scan if none provided
     if target_urls is None:
         target_urls = [
-            "http://testphp.vulnweb.com/search.php?test=query"
+            options.get('url')
         ]
 
     logger.log("[*] Starting XSS scan...")
