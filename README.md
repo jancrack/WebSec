@@ -83,6 +83,10 @@ web-vuln-scanner/
 ├── requirements.txt      # Python dependencies
 
 README.md             # Project documentation
+requirements.txt
+alexa_top_1M.csv
+words.txt
+main.py
 
 ## **⚠️ Legal Disclaimer**
 This project is intended for **educational and ethical research purposes only**. You must have explicit permission to scan and test any website with this tool. Unauthorized scanning or intrusion testing is **illegal** and strictly prohibited.
