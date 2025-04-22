@@ -35,7 +35,7 @@ To identify endpoints that are not properly sanitizing input and are therefore s
 - Integration with sqlmap for automated testing.
 - Logging of vulnerable pages and filtering out secure ones.
 
-### **3. 🧪 XSS Vulnerability Scanner (Optional)**
+### **3. 🧪 XSS Vulnerability Scanner **
 **Description:**
 Similar to Step 2, this tool checks for **Cross-Site Scripting (XSS)** vulnerabilities on the same set of websites. It uses payload injection and analysis techniques to detect reflected and stored XSS.
 
