@@ -29,7 +29,7 @@ def log(min_verbose_level: int, *message):
         print(*message)
 
 
-def dns(
+def dns_scrape(
     ips: list[str],
     dns_server: str,
     web_ports: list[str],
@@ -59,9 +59,9 @@ def dns(
     dns_successful_results = {
         ip: result for ip, result in dns_results.items() if result != None
     }
-    dns_successful_urls = set([url[:-1] for url in dns_successful_results.values()])
-    log(1, f"Discovered {len(dns_successful_urls)} domains using DNS PTR records.")
-    log(2, dns_successful_urls)
+    dns_successful_result_domains = set([url[:-1] for url in dns_successful_results.values()])
+    log(1, f"Discovered {len(dns_successful_result_domains)} domains using DNS PTR records.")
+    log(2, dns_successful_result_domains)
     log(
         1,
         f"Performing HTTP probes at ports {web_ports} for {len(dns_successful_results)} ip addresses using {threads} threads and delay of {threading_delay} seconds...",
@@ -88,44 +88,58 @@ def dns(
         http_successful_results, timeout, threads, threading_delay
     )
     log(2, ssl_results)
-    ssl_domains = set(
+    ssl_results_domains = set(
         [
             url.replace("*.", "")
             for domain_list in ssl_results.values()
             for url in domain_list
         ]
     )
-    log(1, f"Discovered {len(ssl_domains)} domains using SSL certificates.")
-    log(2, ssl_domains)
+    log(1, f"Discovered {len(ssl_results_domains)} domains using SSL certificates.")
+    log(2, ssl_results_domains)
 
     # get alexa top domains
     log(1, f"Reading alexa top {max_alexa_rank} from {alexa_csv_filepath}...")
-    alexa_top = df.read_alexa_top_csv(alexa_csv_filepath, max_rank=max_alexa_rank)
-    log(1, f"Extracting keywords from alexa top {len(alexa_top)} domains...")
-    keywords = df.get_domain_keyword_set(alexa_top)
-    log(1, f"Extracted {len(keywords)} keywords.")
-    log(2, keywords)
+    alexa_top_domains = df.read_alexa_top_csv(alexa_csv_filepath, max_rank=max_alexa_rank)
+    log(1, f"Extracting keywords from alexa top {len(alexa_top_domains)} domains...")
+    alexa_kw = df.get_domain_keyword_set(alexa_top_domains)
+    log(1, f"Extracted {len(alexa_kw)} keywords.")
+    log(2, alexa_kw)
 
     # filter out top domains by keywords
     # using ssl
-    log(1, f"Filtering discovered addresses using {len(keywords)} kewords...")
-    filtered_ssl_domains = df.filter_urls_by_keywords(ssl_domains, keywords)
+    log(1, f"Filtering discovered addresses using {len(alexa_kw)} kewords...")
+    filtered_ssl_domains = df.filter_urls_by_keywords(ssl_results_domains, alexa_kw)
     log(
         1,
         f"Successfully selected {len(filtered_ssl_domains)} domains by SSL certificate.",
     )
     log(2, filtered_ssl_domains)
     # using dns
-    log(1, f"Filtering discovered addresses using {len(keywords)} kewords...")
-    filtered_ptr_domains = df.filter_urls_by_keywords(dns_successful_urls, keywords)
+    log(1, f"Filtering discovered addresses using {len(alexa_kw)} kewords...")
+    filtered_ptr_domains = df.filter_urls_by_keywords(dns_successful_result_domains, alexa_kw)
     log(
         1,
         f"Successfully selected {len(filtered_ptr_domains)} domains by DNS PTR record.",
     )
     log(2, filtered_ptr_domains)
 
+    # merge results
+    log(1, f"Merging results...")
+    filtered_ips_total = set()
+    [
+        filtered_ips_total.add(ip)
+        for ip in ssl_results.keys()
+        if any([domain in ssl_results[ip] for domain in ssl_results_domains])
+    ]
+    [filtered_ips_total.add(ip) for ip in dns_results if dns_results[ip] != None]
+    filtered_ips_total=list(filtered_ips_total)
 
-def search(
+    print(filtered_ips_total)
+    return filtered_ips_total
+
+
+def search_scrape(
     search_engine: str,
     result_xpath: str,
     search_phrases: list[str],
@@ -135,12 +149,15 @@ def search(
     alexa_max_rank: int,
     max_threads: int,
     thread_delay: float,
-    verbose_level:int
+    verbose_level: int,
 ):
     global VERBOSE_LEVEL
     VERBOSE_LEVEL = verbose_level
 
-    log(1, f'Scraping search engine {search_engine} with {len(search_phrases)} search phrases using {max_threads} threads with {thread_delay}s delay...')
+    log(
+        1,
+        f"Scraping search engine {search_engine} with {len(search_phrases)} search phrases using {max_threads} threads with {thread_delay}s delay...",
+    )
     results = df.search_engine_scrape_threaded(
         search_engine,
         result_xpath,
@@ -152,35 +169,36 @@ def search(
     )
     log(2, results)
     urls = [url for urls in results.values() for url in urls]
-    log(1, f'Extracted {len(urls)} urls.')
+    log(1, f"Extracted {len(urls)} urls.")
     log(2, urls)
 
-    log(1, f'Reading top alexa {alexa_max_rank} ranked sites...')
+    log(1, f"Reading top alexa {alexa_max_rank} ranked sites...")
     alexa_1m = df.read_alexa_top_csv(alexa_csv_filepath, max_rank=alexa_max_rank)
     alexa_kw = df.get_domain_keyword_set(alexa_1m)
-    log(1, f'Extracted {len(alexa_kw)} keywords for filtration.')
+    log(1, f"Extracted {len(alexa_kw)} keywords for filtration.")
     log(2, alexa_kw)
 
-    log(1, f'Filtering {len(urls)} urls using {len(alexa_kw)} keywords...')
+    log(1, f"Filtering {len(urls)} urls using {len(alexa_kw)} keywords...")
     filtered_urls = df.filter_urls_by_keywords(urls, alexa_kw)
 
-    log(1, f'Extracted {len(filtered_urls)} urls.')
+    log(1, f"Extracted {len(filtered_urls)} urls.")
     print(filtered_urls)
+    return filtered_urls
 
 
 if __name__ == "__main__":
-    # dns(
-    #     TEST_IPS,
-    #     TEST_DNS,
-    #     TEST_PORTS,
-    #     TEST_ALEXA_CSV,
-    #     TEST_ALEXA_MAX_RANK,
-    #     TEST_TIMEOUT,
-    #     TEST_THREADS,
-    #     TEST_DELAY,
-    #     verbose_level=2,
-    # )
-    search(
+    dns_scrape(
+        TEST_IPS,
+        TEST_DNS,
+        TEST_PORTS,
+        TEST_ALEXA_CSV,
+        TEST_ALEXA_MAX_RANK,
+        TEST_TIMEOUT,
+        TEST_THREADS,
+        TEST_DELAY,
+        verbose_level=1,
+    )
+    search_scrape(
         TEST_SEARCH_ENGINE,
         TEST_RESULT_XPATH,
         TEST_SEARCH_PHRASES,
