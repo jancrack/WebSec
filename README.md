@@ -65,24 +65,33 @@ To streamline the vulnerability assessment workflow in a single terminal session
 
 ## **📁 Project Structure (Planned)**
 web-vuln-scanner/
+├── main.py                         # Entry point - runs the CLI tool
+├── requirements.txt                # Python dependencies
+├── UpdateInfo.txt                  # Info about changes
+├── README.md                       # Project documentation
+├── .gitignore                      # Files to exclude from Git
+├── alexa_top_1M.csv                # Domains dataset
+├── words.txt                       # Wordlist
+├── words_full.txt                  # Extended wordlist
 
-│
+├── vuln_cli_tool/                  # Main scanning logic
+│   ├── cli.py                      # CLI integration
+│   ├── test_discovery.py           # Extra test module for discovery
 
-├── discover.py           # Step 1: Website discovery
+│   ├── modules/                    # Scanning modules
+│   │   ├── discovery.py            # Step 1: Website discovery
+│   │   ├── sql_test.py             # Step 2: SQLi scanner
+│   │   ├── xss_test.py             # Step 3: XSS scanner
+│   │   └── report.py               # Report generation logic
 
-├── sqli\_scanner.py       # Step 2: SQL injection scanner
+│   ├── utils/                      # Utility helpers and embedded tools
+│   │   ├── logger.py               # Simple verbose logger class
+│   │   └── sqlmap-master/          # Embedded sqlmap tool
+│   │       ├── sqlmap.py           # Core sqlmap runner
+│   │       ├── sqlmapapi.py        # SQLmap API interface
+│   │       ├── sqlmap.conf         # Configuration
+│   │       ├── plugins/, tamper/, lib/, etc.  # Support files
 
-├── xss\_scanner.py        # Step 3: XSS vulnerability scanner
-
-├── cli.py                # Step 4: CLI integration
-
-├── utils/                # Helper modules and tools
-
-├── results/              # Output directory for logs and reports
-
-├── requirements.txt      # Python dependencies
-
-README.md             # Project documentation
 
 ## **⚠️ Legal Disclaimer**
 This project is intended for **educational and ethical research purposes only**. You must have explicit permission to scan and test any website with this tool. Unauthorized scanning or intrusion testing is **illegal** and strictly prohibited.
