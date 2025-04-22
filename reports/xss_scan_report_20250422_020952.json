@@ -1,0 +1,8 @@
+[
+    {
+        "url": "http://testphp.vulnweb.com/listproducts.php?cat=1",
+        "param": "cat",
+        "payload": "sqlmap",
+        "type": "sqli"
+    }
+]

@@ -1,0 +1,14 @@
+[33m2c80106[m[33m ([m[1;36mHEAD -> [m[1;32mxss_scanner[m[33m, [m[1;31morigin/xss_scanner[m[33m)[m additional-discovery-menu-options
+[33m1b6228a[m Implemented complete XSS module: payload injection, alert capture, screenshot saving, CLI reporting
+[33mbcf9f61[m add-xss-vulnerability-scanner-modul
+[33m6663e19[m[33m ([m[1;31morigin/vuln_cli_tool[m[33m, [m[1;32mvuln_cli_tool[m[33m)[m add-an-interactive-menu-InquirerPy
+[33meb8828f[m logger-utility
+[33mf5194f5[m create-report-generator-json-csv
+[33m9c73908[m implement-each-module-(run)-method
+[33m92b8c48[m design-the-cli-with-argparse
+[33mcf2a2ae[m Initial project structure with CLI scaffold
+[33m9f6640a[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m Create UpdateInfo
+[33m3f7b4e9[m Create TestSite
+[33md673b95[m Add files via upload
+[33mc33c893[m Create README.md
+[33m58cd23f[m Initial commit

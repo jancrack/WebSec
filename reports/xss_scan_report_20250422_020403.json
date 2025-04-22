@@ -1,0 +1,8 @@
+[
+    {
+        "url": "http://testphp.vulnweb.com/search.php?test=%27%22%3E%3Cimg+src%3Dx+onerror%3Dalert%28%27XSS%27%29%3E",
+        "param": "test",
+        "payload": "'\"><img src=x onerror=alert('XSS')>",
+        "type": "reflected"
+    }
+]
