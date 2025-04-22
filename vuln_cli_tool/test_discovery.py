@@ -1,4 +1,4 @@
-import modules.discovery_and_filtering as df
+import modules.discovery as df
 
 TEST_IPS = [
     "23.227.38.65",
@@ -14,7 +14,7 @@ TEST_THREADS = 20
 TEST_PORTS = [80, 443, 8080, 8000, 8008, 8888]
 TEST_TIMEOUT = 1
 TEST_ALEXA_MAX_RANK = 1000000
-TEST_ALEXA_CSV = "top-1m.csv"
+TEST_ALEXA_CSV = "alexa_top_1M.csv"
 TEST_DELAY = 0.5
 TEST_SEARCH_ENGINE = "duckduckgo.com/?q="
 TEST_RESULT_XPATH = "//*/div/h2/a"
