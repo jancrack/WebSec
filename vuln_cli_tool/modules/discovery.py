@@ -216,6 +216,11 @@ def read_words(filepath: str, count: int = 100, at_random: bool = True) -> set[s
 
     return list(words[:count] if not at_random else random.sample(sorted(words), min(count,len(words))))
 
+def log(min_verbose_level: int, *message):
+    global VERBOSE_LEVEL
+    if VERBOSE_LEVEL >= min_verbose_level:
+        print(*message)
+
 
 def search_engine_scrape(
     search_engine_url: str,
@@ -280,6 +285,116 @@ def search_engine_scrape(
 
     driver.quit()
     return word, list(seen_urls)
+
+def dns_discovery(
+          ips: list[str],
+    dns_server: str,
+    web_ports: list[str],
+    alexa_csv_filepath: str,
+    max_alexa_rank: int,
+    timeout: int,
+    threads: int,
+    threading_delay: float,
+    verbose_level: int = 1,
+):
+    global VERBOSE_LEVEL
+    VERBOSE_LEVEL = verbose_level
+
+    log(
+        1,
+        "Warning: DNS mode works for websites that are not virtually hosted and have a fully described SSL certificate. Use at your own risk",
+    )
+
+    log(
+        1,
+        f"Performing DNS queries at {dns_server} for {len(ips)} ip addresses using {threads} threads and delay of {threading_delay} seconds...",
+    )
+    # check if ips have a dns record
+    dns_results = reverse_dns_threaded(ips, dns_server, threads, threading_delay)
+    log(2, dns_results)
+    # filter out unsuccessful checks
+    dns_successful_results = {
+        ip: result for ip, result in dns_results.items() if result != None
+    }
+    dns_successful_result_domains = set([url[:-1] for url in dns_successful_results.values()])
+    log(1, f"Discovered {len(dns_successful_result_domains)} domains using DNS PTR records.")
+    log(2, dns_successful_result_domains)
+    log(
+        1,
+        f"Performing HTTP probes at ports {web_ports} for {len(dns_successful_results)} ip addresses using {threads} threads and delay of {threading_delay} seconds...",
+    )
+    # probe if addresses have http/s services
+    http_results = has_web_service_threaded(
+        list(dns_successful_results.keys()),
+        web_ports,
+        timeout,
+        threads,
+        threading_delay,
+    )
+    # filter out unsuccessful checks
+    http_successful_results = [
+        address for address in http_results.keys() if http_results[address]
+    ]
+    log(2, http_results)
+    log(
+        1,
+        f"Performing SSL domain probes for {len(http_successful_results)} ip addresses using {threads} threads and delay of {threading_delay} seconds...",
+    )
+    # get domain names of addresses
+    ssl_results = get_cert_domain_threaded(
+        http_successful_results, timeout, threads, threading_delay
+    )
+    log(2, ssl_results)
+    ssl_results_domains = set(
+        [
+            url.replace("*.", "")
+            for domain_list in ssl_results.values()
+            for url in domain_list
+        ]
+    )
+    log(1, f"Discovered {len(ssl_results_domains)} domains using SSL certificates.")
+    log(2, ssl_results_domains)
+
+    # get alexa top domains
+    log(1, f"Reading alexa top {max_alexa_rank} from {alexa_csv_filepath}...")
+    alexa_top_domains = read_alexa_top_csv(alexa_csv_filepath, max_rank=max_alexa_rank)
+    log(1, f"Extracting keywords from alexa top {len(alexa_top_domains)} domains...")
+    alexa_kw = get_domain_keyword_set(alexa_top_domains)
+    log(1, f"Extracted {len(alexa_kw)} keywords.")
+    log(2, alexa_kw)
+
+    # filter out top domains by keywords
+    # using ssl
+    log(1, f"Filtering discovered addresses using {len(alexa_kw)} kewords...")
+    filtered_ssl_domains = filter_urls_by_keywords(ssl_results_domains, alexa_kw)
+    log(
+        1,
+        f"Successfully selected {len(filtered_ssl_domains)} domains by SSL certificate.",
+    )
+    log(2, filtered_ssl_domains)
+    # using dns
+    log(1, f"Filtering discovered addresses using {len(alexa_kw)} kewords...")
+    filtered_ptr_domains = filter_urls_by_keywords(dns_successful_result_domains, alexa_kw)
+    log(
+        1,
+        f"Successfully selected {len(filtered_ptr_domains)} domains by DNS PTR record.",
+    )
+    log(2, filtered_ptr_domains)
+
+    # merge results
+    log(1, f"Merging results...")
+    filtered_ips_total = set()
+    [
+        filtered_ips_total.add(ip)
+        for ip in ssl_results.keys()
+        if any([domain in ssl_results[ip] for domain in ssl_results_domains])
+    ]
+    [filtered_ips_total.add(ip) for ip in dns_results if dns_results[ip] != None]
+    filtered_ips_total=list(filtered_ips_total)
+
+    print(filtered_ips_total)
+    return filtered_ips_total
+
 
 
 def search_engine_scrape_threaded(
@@ -367,24 +482,17 @@ def run(logger, options=None):
         if not found_urls:
             logger.log("[!] No URLs found from search engine.")
 
-        discovery_result = {'result':list(found_urls)}
-        discovery_result.update(options)
-        outpath=os.path.join('reports',f'discovery_{time.time()}.report.json')
-        with open(outpath, 'w+') as output:
-            output.write(json.dumps(discovery_result, indent=4))
-            logger.log(f"Output saved to: {outpath}")
-
-
 
     # === DNS Discovery ===
     elif options["type"] == "dns":
-        ips = options.get("ips", "")
+        ips = options.get("ips")
         dns_server = options.get("dns_server", "1.1.1.1")
         threads = int(options.get("threads", 20))
-        ports = [int(p) for p in options.get("ports", "80,8000,443").split(",")]
-        timeout = int(options.get("timeout", 1))
+        ports = [int(p) for p in options.get("ports", "80,443").split(",")]
+        timeout = int(options.get("timeout", 3))
         alexa_rank = int(options.get("alexa_rank", 100))
-        alexa_file = options.get("alexa_file", "")
+        alexa_file = options.get("alexa_file")
+        delay = float(options.get("delay"))
 
         logger.log("DNS Discovery:")
         logger.log(f"    IPs: {ips}")
@@ -392,22 +500,42 @@ def run(logger, options=None):
         logger.log(f"    Ports: {ports}")
         logger.log(f"    Threads: {threads}")
         logger.log(f"    Timeout: {timeout}s")
+        logger.log(f"    Alexa top sites CSV: {alexa_file}")
         logger.log(f"    Alexa Rank Limit: {alexa_rank}")
 
-        if alexa_file.endswith(".json"):
-            logger.log(f"    Alexa JSON: {alexa_file}")
-        elif alexa_file.endswith(".csv"):
-            logger.log(f"    Alexa CSV: {alexa_file}")
-        else:
-            logger.log(f"    Alexa File: {alexa_file} (unknown format)")
+        alexa_top_sites = []
+        try:
+            alexa_top_sites = read_alexa_top_csv(alexa_file, max_rank=alexa_rank)
+        except Exception as e:
+            logger.log(f"[!] Failed to read alexa top domains file: {e}")
+            return []
 
         # Simulated IP and port scan
-        simulated_ips = ["192.168.0.100", "192.168.0.101"]
-        found_urls = [f"http://{ip}:{port}" for ip in simulated_ips for port in ports]
+        ips_addrs=[]
+        if '/' in ips:
+            addr,prefix = ips.split('/')
+            ips_addrs=get_hosts_in_network(addr,prefix)
+        elif '..' in ips:
+            start,end = ips.split('..')
+            ips_addrs=get_hosts_in_range(start,end)
+        else:
+            ips_addrs=ips.split(',')
+
+        found_urls = dns_discovery(ips_addrs,dns_server,ports, alexa_file,alexa_rank,timeout,threads,delay)
+
+        
 
     else:
         logger.log("[-] Unknown discovery type.")
         return []
 
     logger.log(f"[+] Discovered {len(found_urls)} URLs.")
+    
+    discovery_result = {'result':list(found_urls)}
+    discovery_result.update(options)
+    outpath=os.path.join('reports',f'discovery_{time.time()}.report.json')
+    with open(outpath, 'w+') as output:
+        output.write(json.dumps(discovery_result, indent=4))
+        logger.log(f"Output saved to: {outpath}")
+
     return found_urls
