@@ -70,23 +70,29 @@ web-vuln-scanner/
 
 ├── discover.py           # Step 1: Website discovery
 
-├── sqli\_scanner.py       # Step 2: SQL injection scanner
+├── sqli\_scanner.py      # Step 2: SQL injection scanner
 
-├── xss\_scanner.py        # Step 3: XSS vulnerability scanner
+├── xss\_scanner.py       # Step 3: XSS vulnerability scanner
 
 ├── cli.py                # Step 4: CLI integration
 
 ├── utils/                # Helper modules and tools
 
-├── results/              # Output directory for logs and reports
+   ├── sqlmap-master/     # directory with sqlmap portable instance
 
-├── requirements.txt      # Python dependencies
+   ├── logger.py               
 
-README.md             # Project documentation
-requirements.txt
-alexa_top_1M.csv
-words.txt
-main.py
+├── reports/              # Output directory for logs and reports
+
+README.md                 # Project documentation
+
+requirements.txt          # required pip packages
+
+alexa_top_1M.csv          # alexa top million domains in csv
+
+words.txt                 # wordlist for search engine scraping
+
+main.py                   # main script to start tool
 
 ## **⚠️ Legal Disclaimer**
 This project is intended for **educational and ethical research purposes only**. You must have explicit permission to scan and test any website with this tool. Unauthorized scanning or intrusion testing is **illegal** and strictly prohibited.
