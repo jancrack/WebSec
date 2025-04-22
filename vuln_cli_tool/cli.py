@@ -2,6 +2,7 @@ from InquirerPy import prompt
 from modules import discovery, sqli_test, xss_test, report
 from utils.logger import Logger
 
+
 def run():
     # Main Questions
     questions = [
@@ -78,13 +79,13 @@ def run():
                             "message": "Next page xpath:",
                             "default": '//*[@id="more-results"]',
                         },
-                        
                         {
                             "type": "input",
                             "name": "alexa_csv",
                             "message": "Alexa top sites CSV file path:",
                             "default": "alexa_top_1M.csv",
-                        },{
+                        },
+                        {
                             "type": "input",
                             "name": "alexa_max_rank",
                             "message": "Alexa Max Rank:",
@@ -161,7 +162,22 @@ def run():
 
     # SQLi scan
     elif answers["mode"] == "sql":
-        results += sqli_test.run(logger)
+        sql_optioons = prompt(
+            [
+                {
+                    "type": "input",
+                    "name": "filepath",
+                    "message": f"SQLMap portable installition main script path:",
+                    "default": "vuln_cli_tool/utils/sqlmap-master/sqlmap.py",
+                },{
+                    "type": "input",
+                    "name": "url",
+                    "message": f"URL to attack:",
+                    "default": "http://testphp.vulnweb.com/listproducts.php?cat=1",
+                }
+            ]
+        )
+        results += sqli_test.run(logger,sql_optioons.get("filepath"), [sql_optioons.get("url")])
 
     # XSS scan
     elif answers["mode"] == "xss":
@@ -189,10 +205,10 @@ def run():
         sqli_test.run(logger)
         results = xss_test.run(logger)
 
-
     # Save results if available
     if results:
         report.save_report(results, output_format=answers["output"])
+
 
 if __name__ == "__main__":
     run()

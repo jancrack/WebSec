@@ -1,6 +1,6 @@
 import subprocess
 
-def run(logger, target_urls=None):
+def run(logger,sqlmap_path, target_urls=None):
     """
     Run SQL injection test using sqlmap on a list of URLs.
     """
@@ -8,16 +8,14 @@ def run(logger, target_urls=None):
 
     if target_urls is None:
         # Default test target
-        target_urls = [
-            "http://testphp.vulnweb.com/listproducts.php?cat=1"
-        ]
+        logger.log('[-] No urls given, exiting')
+        return []
+    
 
     for url in target_urls:
         logger.log(f"[+] Starting scan on {url} using sqlmap...")
 
         try:
-            sqlmap_path = './sqlmap-master/sqlmap.py'
-
             command = [
                 'python', sqlmap_path,
                 '-u', url,
