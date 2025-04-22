@@ -64,6 +64,8 @@ To streamline the vulnerability assessment workflow in a single terminal session
 - Verbose and silent modes.
 
 ## **📁 Project Structure (Planned)**
+
+```
 web-vuln-scanner/
 ├── main.py                         # Entry point - runs the CLI tool
 ├── requirements.txt                # Python dependencies
@@ -77,13 +79,13 @@ web-vuln-scanner/
 ├── vuln_cli_tool/                  # Main scanning logic
 │   ├── cli.py                      # CLI integration
 │   ├── test_discovery.py           # Extra test module for discovery
-
+│
 │   ├── modules/                    # Scanning modules
 │   │   ├── discovery.py            # Step 1: Website discovery
 │   │   ├── sql_test.py             # Step 2: SQLi scanner
 │   │   ├── xss_test.py             # Step 3: XSS scanner
 │   │   └── report.py               # Report generation logic
-
+│
 │   ├── utils/                      # Utility helpers and embedded tools
 │   │   ├── logger.py               # Simple verbose logger class
 │   │   └── sqlmap-master/          # Embedded sqlmap tool
@@ -91,6 +93,9 @@ web-vuln-scanner/
 │   │       ├── sqlmapapi.py        # SQLmap API interface
 │   │       ├── sqlmap.conf         # Configuration
 │   │       ├── plugins/, tamper/, lib/, etc.  # Support files
+```
+
+---
 
 
 ## **⚠️ Legal Disclaimer**
