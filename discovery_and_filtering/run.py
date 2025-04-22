@@ -24,7 +24,7 @@ def log(min_verbose_level: int, *message):
         print(*message)
 
 
-def main(
+def dns(
     ips: list[str],
     dns_server: str,
     web_ports: list[str],
@@ -120,15 +120,28 @@ def main(
     log(2, filtered_ptr_domains)
 
 
-if __name__ == "__main__":
-    main(
-        TEST_IPS,
-        TEST_DNS,
-        TEST_PORTS,
-        TEST_ALEXA_CSV,
-        TEST_ALEXA_MAX_RANK,
-        TEST_TIMEOUT,
-        TEST_THREADS,
-        TEST_DELAY,
-        verbose_level=2,
+def search():
+    result = df.search_engine_scrape_threaded(
+        "duckduckgo.com/?q=",
+        "//*/div/h2/a",
+        ["test","google.com"],
+        2,
+        '//*[@id="more-results"]',
+        443,
     )
+    print(result)
+
+
+if __name__ == "__main__":
+    # dns(
+    #     TEST_IPS,
+    #     TEST_DNS,
+    #     TEST_PORTS,
+    #     TEST_ALEXA_CSV,
+    #     TEST_ALEXA_MAX_RANK,
+    #     TEST_TIMEOUT,
+    #     TEST_THREADS,
+    #     TEST_DELAY,
+    #     verbose_level=2,
+    # )
+    search()

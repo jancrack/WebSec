@@ -1,22 +1,20 @@
 import ssl
-import html
 import time
 import socket
 import random
-import requests
 import ipaddress
 import dns.resolver
 import pandas as pd
-from lxml import html
 import dns.reversename
-from urllib.parse import urljoin
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 DEFAULT_DNS_SERVER: str = "8.8.8.8"
 DEFAULT_WEB_TIMEOUT: int = 3
 DEFAULT_WEB_PORTS: list[int] = [80, 8080, 8008, 8000, 8888, 443]
 DEFAULT_THREADS: int = 20
-DEFAULT_SEARCH_ENGINE_PORT: int = 80
 DEFAULT_THREADING_DELAY: float = 0.5
 
 
@@ -221,57 +219,57 @@ def search_engine_scrape(
     word: str,
     depth: int,
     next_page_xpath: str,
-    search_engine_port: int = DEFAULT_SEARCH_ENGINE_PORT,
     init_delay: float = 0,
-    delay: float = 0,
+    delay: float = 0.5,
 ) -> tuple[str, list[str]]:
     """
     @Returns
         A tuple with the given word and a list of the unique urls that match the given xpath
     @Parameters
-        str search_engine_url - the search engine (e.g. google.com, www.yahoo.com, https://bing.com)
+        str search_engine_url - the search engine with search param (e.g. google.com/search?q=, www.duckduckgo.com/?q=, https://bing.com/search?q=)
         str result_xpath - the xpath pattern that the results containing urls should match
         str word - search query content
         int depth - how many pages to walk
         str next_page_xpath - the template containing the next page url
-        int search_engine_port - the port of the search engine http/s protocol
         float init_delay - how long to wait before starting function
         float delay - how long to wait between requests
     """
-    seen_urls = set()
-    current_url = f"https://{search_engine_url}:{search_engine_port}/search?q={word}"
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
-    }
     time.sleep(init_delay)
+    options = Options()
+    options.add_argument("--headless")  # run browser in background
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+
+    # Launch browser
+    driver = webdriver.Chrome(options=options)
+
+    seen_urls = set()
+    query_url = f"https://{search_engine_url}{word}"
+    driver.get(query_url)
+
     for _ in range(depth):
         try:
-            response = requests.get(current_url, headers=headers, timeout=10)
-            if response.status_code != 200:
+            # Wait for results to load
+            # wait.until(EC.presence_of_all_elements_located((By.XPATH, result_xpath)))
+            results = driver.find_elements(By.XPATH, result_xpath)
+            for r in results:
+                href = r.get_attribute("href")
+                if href:
+                    seen_urls.add(href.strip())
+
+            # Find and click next page
+            next_links = driver.find_elements(By.XPATH, next_page_xpath)
+            if not next_links:
                 break
 
-            tree = html.fromstring(response.content)
-
-            # extract result urls
-            urls = tree.xpath(result_xpath)
-            clean_urls = [url.strip() for url in urls if url.strip()]
-            seen_urls.update(clean_urls)
-
-            # get next page url
-            next_page_links = tree.xpath(next_page_xpath)
-            if not next_page_links:
-                break
-
-            next_page_url = urljoin(current_url, next_page_links[0])
-            current_url = next_page_url
-
-            time.sleep(delay)
+            next_links[0].click()
+            time.sleep(delay)  # Respectful delay between pages
 
         except Exception as e:
-            print(f"Error fetching or parsing page: {e}")
+            print(f"[!] Error: {e}")
             break
 
+    driver.quit()
     return word, list(seen_urls)
 
 
@@ -280,6 +278,25 @@ def search_engine_scrape_threaded(
     result_xpath: str,
     words: list[str],
     depth: int,
-    search_engine_port: int = DEFAULT_SEARCH_ENGINE_PORT,
+    next_page_xpath: str,
+    max_threads: int = DEFAULT_THREADS,
+    delay: float = DEFAULT_THREADING_DELAY,
 ) -> dict[str : list[str]]:
-    pass
+    results = {}
+    with ThreadPoolExecutor(max_threads) as executor:
+        futures = {
+            executor.submit(
+                search_engine_scrape,
+                search_engine_url,
+                result_xpath,
+                words[i],
+                depth,
+                next_page_xpath,
+                delay * (i + 1),
+            ): words[i]
+            for i in range(len(words))
+        }
+        for future in as_completed(futures):
+            word, domains = future.result()
+            results[word] = domains
+    return results
