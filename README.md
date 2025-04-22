@@ -69,7 +69,6 @@ To streamline the vulnerability assessment workflow in a single terminal session
 web-vuln-scanner/
 ├── main.py                         # Entry point - runs the CLI tool
 ├── requirements.txt                # Python dependencies
-├── UpdateInfo.txt                  # Info about changes
 ├── README.md                       # Project documentation
 ├── .gitignore                      # Files to exclude from Git
 ├── alexa_top_1M.csv                # Domains dataset
